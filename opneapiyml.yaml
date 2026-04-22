@@ -1,0 +1,207 @@
+openapi: 3.0.3
+info:
+  title: Azure Application Insights Query API
+  description: API to query log data from Azure Application Insights using Kusto Query Language (KQL).
+  version: v1
+servers:
+  - url: https://api.applicationinsights.io/v1
+    description: Application Insights API (Global)
+  - url: https://api.applicationinsights.us/v1
+    description: Application Insights API (US Government)
+  - url: https://api.applicationinsights.cn/v1
+    description: Application Insights API (China)
+paths:
+  /apps/{appId}/query:
+    get:
+      operationId: queryGet
+      summary: Execute Analytics Query (GET)
+      description: Executes a KQL query against Application Insights log data.
+      parameters:
+        - name: appId
+          in: path
+          required: true
+          description: The Application ID of the Application Insights resource. Found in the API Access blade in the Azure portal.
+          schema:
+            type: string
+            format: uuid
+            example: "cf58dcfd-0683-4f79-a404-be2014c5e423"
+        - name: query
+          in: query
+          required: true
+          description: A Kusto Query Language (KQL) query to execute.
+          schema:
+            type: string
+            example: "requests | summarize count() by resultCode | order by count_ desc"
+        - name: timespan
+          in: query
+          required: false
+          description: >-
+            ISO 8601 duration or time interval. Examples:
+            PT12H (last 12 hours), P7D (last 7 days),
+            2026-04-14T00:00:00Z/2026-04-21T00:00:00Z (specific range).
+          schema:
+            type: string
+            example: "P7D"
+      responses:
+        "200":
+          description: Successful query response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryResponse"
+        "400":
+          description: Bad request – invalid query syntax or parameters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized – missing or invalid API key / token.
+        "403":
+          description: Forbidden – insufficient permissions.
+        "429":
+          description: Too many requests – rate limit exceeded.
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying.
+              schema:
+                type: integer
+      security:
+        - apiKey: []
+        - bearerAuth: []
+    post:
+      operationId: queryPost
+      summary: Execute Analytics Query (POST)
+      description: Executes a KQL query via POST body. Recommended for long or complex queries.
+      parameters:
+        - name: appId
+          in: path
+          required: true
+          description: The Application ID of the Application Insights resource.
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QueryRequest"
+      responses:
+        "200":
+          description: Successful query response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryResponse"
+        "400":
+          description: Bad request – invalid query syntax or parameters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized.
+        "403":
+          description: Forbidden.
+        "429":
+          description: Too many requests.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+      security:
+        - apiKey: []
+        - bearerAuth: []
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: API key generated from the API Access blade of the Application Insights resource.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Azure AD / Entra ID OAuth2 token with scope https://api.applicationinsights.io/.default
+  schemas:
+    QueryRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: KQL query string.
+          example: "traces | where severity >= 3 | take 50"
+        timespan:
+          type: string
+          description: ISO 8601 duration or time range.
+          example: "P1D"
+        applications:
+          type: array
+          description: Additional Application Insights apps for cross-resource queries.
+          items:
+            type: string
+    QueryResponse:
+      type: object
+      properties:
+        tables:
+          type: array
+          items:
+            $ref: "#/components/schemas/Table"
+    Table:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Table name (typically "PrimaryResult").
+          example: "PrimaryResult"
+        columns:
+          type: array
+          items:
+            $ref: "#/components/schemas/Column"
+        rows:
+          type: array
+          description: Array of row arrays, each row matching the columns order.
+          items:
+            type: array
+            items: {}
+    Column:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "timestamp"
+        type:
+          type: string
+          description: Data type of the column.
+          enum:
+            - bool
+            - datetime
+            - dynamic
+            - int
+            - long
+            - real
+            - string
+          example: "datetime"
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              example: "The request had some invalid properties"
+            code:
+              type: string
+              example: "BadArgumentError"
+            innererror:
+              type: object
+              properties:
+                code:
+                  type: string
+                message:
+                  type: string
