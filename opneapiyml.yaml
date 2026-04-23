@@ -11,7 +11,7 @@ servers:
   - url: https://api.applicationinsights.cn/v1
     description: Application Insights API (China)
 paths:
-  /apps/d424c29f-e3dd-498b-a118-3014eaec0a11/query:
+  /apps/{appId}/query:
     get:
       operationId: queryGet
       summary: Execute Analytics Query (GET)
