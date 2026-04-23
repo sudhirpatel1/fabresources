@@ -167,7 +167,6 @@ components:
           description: Array of row arrays, each row matching the columns order.
           items:
             type: array
-            items: {}
     Column:
       type: object
       properties:
